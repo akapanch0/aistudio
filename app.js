@@ -912,15 +912,49 @@ function showInfoModal(key) {
    ZONAS Y MAPAS (PRECARGA INTEGRAL Y VISUALIZACIÓN RÁPIDA)
    ============================================================ */
 const ZONA_MAPAS = {
-  'Trujui': { archivo: 'trujui.png', nombre: 'Trujui' },
-  'Cuartel V': { archivo: 'cuartelv.png', nombre: 'Cuartel V' },
-  'Moreno': { archivo: 'moreno.png', nombre: 'Moreno' },
-  'Gral. Rodríguez': { archivo: 'gralrodriguez.png', nombre: 'Gral. Rodríguez' },
-  'Tigre': { archivo: 'tigre.png', nombre: 'Tigre' },
-  'San Martín': { archivo: 'sanmartin.png', nombre: 'San Martín' },
-  'Olivos': { archivo: 'olivos.png', nombre: 'Olivos' },
-  'Pilar-Escobar': { archivo: 'pilarescobar.png', nombre: 'Pilar-Escobar' }
+  'Trujui': { archivo: 'trujui.png', nombre: 'Trujui', id: 'Trujui' },
+  'Cuartel V': { archivo: 'cuartelv.png', nombre: 'Cuartel V', id: 'Cuartel V' },
+  'Moreno': { archivo: 'moreno.png', nombre: 'Moreno', id: 'Moreno' },
+  'Gral. Rodríguez': { archivo: 'gralrodriguez.png', nombre: 'Gral. Rodríguez', id: 'Gral. Rodríguez' },
+  'Tigre': { archivo: 'tigre.png', nombre: 'Tigre', id: 'Tigre' },
+  'San Martín': { archivo: 'sanmartin.png', nombre: 'San Martín', id: 'San Martín' },
+  'Olivos': { archivo: 'olivos.png', nombre: 'Olivos', id: 'Olivos' },
+  'Pilar-Escobar': { archivo: 'pilarescobar.png', nombre: 'Pilar-Escobar', id: 'Pilar-Escobar' }
 };
+
+function normalizeZonaString(z) {
+  if (!z) return '';
+  return String(z)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function getMapaInfo(zona) {
+  if (!zona) return null;
+  if (ZONA_MAPAS[zona]) return ZONA_MAPAS[zona];
+  
+  const norm = normalizeZonaString(zona);
+  if (!norm) return null;
+
+  for (const k of Object.keys(ZONA_MAPAS)) {
+    if (normalizeZonaString(k) === norm) {
+      return ZONA_MAPAS[k];
+    }
+  }
+
+  if (norm.includes('sanmartin') || (norm.includes('martin') && !norm.includes('martelli'))) return ZONA_MAPAS['San Martín'];
+  if (norm.includes('pilar') || norm.includes('escobar')) return ZONA_MAPAS['Pilar-Escobar'];
+  if (norm.includes('olivo') || norm.includes('vicentelopez')) return ZONA_MAPAS['Olivos'];
+  if (norm.includes('tigre')) return ZONA_MAPAS['Tigre'];
+  if (norm.includes('cuartel')) return ZONA_MAPAS['Cuartel V'];
+  if (norm.includes('rodriguez') || norm.includes('gralrodriguez')) return ZONA_MAPAS['Gral. Rodríguez'];
+  if (norm.includes('moreno')) return ZONA_MAPAS['Moreno'];
+  if (norm.includes('trujui')) return ZONA_MAPAS['Trujui'];
+
+  return null;
+}
 
 const preloadedMapImages = {};
 
@@ -930,18 +964,18 @@ function preloadMapas() {
     const im = new Image();
     im.src = `maps/${m.archivo}`;
     preloadedMapImages[k] = im;
+    preloadedMapImages[m.archivo] = im;
+    preloadedMapImages[normalizeZonaString(k)] = im;
   });
 }
 
-function mostrarMapaZona(zona) {
-  const container = $('#zonaMapaContainer');
-  const img = $('#zonaMapaImg');
-  const placeholder = $('#zonaMapaPlaceholder');
-  const titulo = $('#zonaMapaTitulo');
-  const nombre = $('#zonaMapaNombre');
+function renderMapaIntoElements(zona, elements) {
+  const { container, img, placeholder, titulo, nombre } = elements;
   if (!container) return;
 
-  if (!zona || !ZONA_MAPAS[zona]) {
+  const mapa = getMapaInfo(zona);
+
+  if (!zona || !mapa) {
     if (titulo) titulo.textContent = 'Previsualización de Mapa';
     if (nombre) nombre.textContent = 'Seleccioná una zona';
     if (img) img.style.display = 'none';
@@ -953,14 +987,14 @@ function mostrarMapaZona(zona) {
     return;
   }
 
-  const mapa = ZONA_MAPAS[zona];
   if (titulo) titulo.textContent = `Zona: ${mapa.nombre}`;
   if (nombre) nombre.textContent = mapa.nombre;
 
   const targetSrc = `maps/${mapa.archivo}`;
 
   // Si ya tenemos la imagen precargada en memoria o en DOM
-  const preloaded = preloadedMapImages[zona];
+  const normKey = normalizeZonaString(mapa.nombre);
+  const preloaded = preloadedMapImages[mapa.nombre] || preloadedMapImages[normKey] || preloadedMapImages[mapa.archivo];
   if (preloaded && preloaded.complete && preloaded.naturalWidth > 0) {
     if (img) {
       img.src = targetSrc;
@@ -980,7 +1014,9 @@ function mostrarMapaZona(zona) {
 
   const nuevaImg = new Image();
   nuevaImg.onload = () => {
-    preloadedMapImages[zona] = nuevaImg;
+    preloadedMapImages[mapa.nombre] = nuevaImg;
+    preloadedMapImages[normKey] = nuevaImg;
+    preloadedMapImages[mapa.archivo] = nuevaImg;
     if (img) {
       img.src = targetSrc;
       img.style.display = 'block';
@@ -998,6 +1034,26 @@ function mostrarMapaZona(zona) {
   nuevaImg.src = targetSrc;
 }
 
+function mostrarMapaZona(zona) {
+  renderMapaIntoElements(zona, {
+    container: $('#zonaMapaContainer'),
+    img: $('#zonaMapaImg'),
+    placeholder: $('#zonaMapaPlaceholder'),
+    titulo: $('#zonaMapaTitulo'),
+    nombre: $('#zonaMapaNombre')
+  });
+}
+
+function mostrarMapaModalZona(zona) {
+  renderMapaIntoElements(zona, {
+    container: $('#modalZonaMapaContainer'),
+    img: $('#modalZonaMapaImg'),
+    placeholder: $('#modalZonaMapaPlaceholder'),
+    titulo: $('#modalZonaMapaTitulo'),
+    nombre: $('#modalZonaMapaNombre')
+  });
+}
+
 function setupMapaZona() {
   const s = $('#loginZona');
   if (s) {
@@ -1006,8 +1062,8 @@ function setupMapaZona() {
   }
   const z2 = $('#newZonaSelect');
   if (z2) {
-    z2.addEventListener('change', e => mostrarMapaZona(e.target.value));
-    z2.addEventListener('input', e => mostrarMapaZona(e.target.value));
+    z2.addEventListener('change', e => mostrarMapaModalZona(e.target.value));
+    z2.addEventListener('input', e => mostrarMapaModalZona(e.target.value));
   }
 }
 
@@ -4174,7 +4230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
       }
       
-      const btnChangeZona = $('#btnChangeZona'); if (btnChangeZona) btnChangeZona.onclick = () => { $('#newZonaSelect').value = State.user.zona || ''; $('#modalChangeZona').classList.add('show'); };
+      const btnChangeZona = $('#btnChangeZona'); if (btnChangeZona) btnChangeZona.onclick = () => { const z = State.user?.zona || ''; $('#newZonaSelect').value = z; mostrarMapaModalZona(z); $('#modalChangeZona').classList.add('show'); };
       const cancelChangeZona = $('#cancelChangeZona'); if (cancelChangeZona) cancelChangeZona.onclick = () => { const mz = $('#modalChangeZona'); if(mz) mz.classList.remove('show'); };
       
       const formChangeZona = $('#formChangeZona');

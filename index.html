@@ -10,15 +10,15 @@
 <meta name="apple-mobile-web-app-title" content="BAREMOS">
 <meta name="application-name" content="BAREMOS">
 <title>BAREMOS - Control de Producción</title>
-<link rel="manifest" href="manifest.json?v=5.8.38">
+<link rel="manifest" href="manifest.json?v=5.8.39">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=5.8.38">
-<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=5.8.38">
-<link rel="apple-touch-icon" href="icons/icon-180.png?v=5.8.38">
-<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png?v=5.8.38">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=5.8.38">
-<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png?v=5.8.38">
-<link rel="stylesheet" href="styles.css?v=5.8.38">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=5.8.39">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=5.8.39">
+<link rel="apple-touch-icon" href="icons/icon-180.png?v=5.8.39">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png?v=5.8.39">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=5.8.39">
+<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png?v=5.8.39">
+<link rel="stylesheet" href="styles.css?v=5.8.39">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.6.0/dist/jspdf.plugin.autotable.min.js"></script>
@@ -648,6 +648,22 @@
           <option value="Pilar-Escobar">Pilar-Escobar</option>
         </select>
       </div>
+      <div class="zona-mapa-container" id="modalZonaMapaContainer" style="margin-bottom:14px">
+        <div class="zona-mapa-header">
+          <span>📍</span>
+          <span id="modalZonaMapaTitulo">Zona seleccionada</span>
+        </div>
+        <div class="zona-mapa-img-wrap">
+          <img class="zona-mapa-img" id="modalZonaMapaImg" alt="Mapa" style="display:none">
+          <div class="zona-mapa-placeholder" id="modalZonaMapaPlaceholder">
+            <div><span class="zmp-ico">🗺️</span><span>Seleccioná una zona</span></div>
+          </div>
+        </div>
+        <div class="zona-mapa-footer">
+          <span><span class="zmf-dot"></span>Mapa precargado</span>
+          <span id="modalZonaMapaNombre">—</span>
+        </div>
+      </div>
       <div class="btn-row">
         <button type="button" class="btn btn-ghost" id="cancelChangeZona">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar</button>
@@ -763,7 +779,7 @@
   </div>
 </div>
 
-<script src="db.js?v=5.8.38"></script>
-<script src="app.js?v=5.8.38"></script>
+<script src="db.js?v=5.8.39"></script>
+<script src="app.js?v=5.8.39"></script>
 </body>
 </html>

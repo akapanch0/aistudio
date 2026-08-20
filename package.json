@@ -1,12 +1,13 @@
 {
   "name": "baremoapp",
-  "version": "5.8.38",
+  "version": "5.8.39",
   "description": "BAREMOS - Registro de producción diaria por baremo",
   "type": "module",
   "scripts": {
     "dev": "node server.ts",
     "build": "node build.js",
-    "start": "node server.ts"
+    "start": "node server.ts",
+    "lint": "node --check app.js && node --check server.ts"
   },
   "dependencies": {
     "express": "^4.21.2",

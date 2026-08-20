@@ -1,5 +1,6 @@
 {
-  "version": "5.8.38",
+  "version": "5.8.39",
   "releaseDate": "2026-08-19",
-  "changelog": "Flujo de inicio de sesión optimizado: redirección automática inmediata al front Registro y aceptación de términos y condiciones en primer login o cambio de usuario."
+  "changelog": "Mapas de jurisdicción para San Martín, Pilar-Escobar, Olivos y Tigre generados e integrados con precarga integral y normalización resiliente de zonas."
 }
+
