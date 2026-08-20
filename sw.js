@@ -1,25 +1,26 @@
-const CACHE_NAME = 'baremos-v5.8.34';
+const CACHE_NAME = 'baremos-v5.8.38';
 const LOCAL_ASSETS = [
   './', 
   './index.html', 
-  './styles.css?v=5.8.34', 
-  './app.js?v=5.8.34', 
-  './db.js?v=5.8.34',
+  './styles.css?v=5.8.38', 
+  './app.js?v=5.8.38', 
+  './db.js?v=5.8.38',
+  './firebase.js?v=5.8.38',
   './baremo.json', 
-  './manifest.json?v=5.8.34', 
+  './manifest.json?v=5.8.38', 
   './version.json', 
   './VERSION',
   './icons/favicon.png',
-  './icons/icon-48.png?v=5.8.34',
-  './icons/icon-72.png?v=5.8.34',
-  './icons/icon-96.png?v=5.8.34',
-  './icons/icon-128.png?v=5.8.34',
-  './icons/icon-144.png?v=5.8.34',
-  './icons/icon-152.png?v=5.8.34',
-  './icons/icon-180.png?v=5.8.34',
-  './icons/icon-192.png?v=5.8.34', 
-  './icons/icon-384.png?v=5.8.34',
-  './icons/icon-512.png?v=5.8.34',
+  './icons/icon-48.png?v=5.8.38',
+  './icons/icon-72.png?v=5.8.38',
+  './icons/icon-96.png?v=5.8.38',
+  './icons/icon-128.png?v=5.8.38',
+  './icons/icon-144.png?v=5.8.38',
+  './icons/icon-152.png?v=5.8.38',
+  './icons/icon-180.png?v=5.8.38',
+  './icons/icon-192.png?v=5.8.38', 
+  './icons/icon-384.png?v=5.8.38',
+  './icons/icon-512.png?v=5.8.38',
   './maps/trujui.png', './maps/cuartelv.png', './maps/moreno.png',
   './maps/gralrodriguez.png', './maps/tigre.png', './maps/sanmartin.png',
   './maps/olivos.png', './maps/pilarescobar.png'
@@ -78,7 +79,25 @@ self.addEventListener('fetch', event => {
      return;
   }
   
-  // Cache First con Network Fallback para recursos locales y CDN
+  // Network-first for same-origin JS and CSS to ensure instant updates
+  if (url.origin === location.origin && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'))) {
+    event.respondWith(
+      fetch(event.request).then(r => {
+        if (r.ok) {
+          const c = r.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, c));
+        }
+        return r;
+      }).catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        throw new Error('Offline and not in cache');
+      })
+    );
+    return;
+  }
+
+  // Cache First con Network Fallback para recursos estáticos y CDN
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
@@ -107,8 +126,8 @@ self.addEventListener('message', event => {
     event.waitUntil(
       self.registration.showNotification(title || '⚠️ Recordatorio: Cierre de Jornada', {
         body: body || 'Recordá registrar todas tus tareas y cerrar la jornada antes de terminar el día laboral.',
-        icon: './icons/icon-192.png?v=5.8.34',
-        badge: './icons/icon-192.png?v=5.8.34',
+        icon: './icons/icon-192.png?v=5.8.35',
+        badge: './icons/icon-192.png?v=5.8.35',
         vibrate: [200, 100, 200],
         tag: tag || 'recordatorio-cierre-jornada',
         renotify: true,
@@ -122,7 +141,7 @@ self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      for (const client of clientList) {
+      for (const client) {
         if (client.url && 'focus' in client) {
           return client.focus();
         }
@@ -150,8 +169,8 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: './icons/icon-192.png?v=5.8.34',
-      badge: './icons/icon-192.png?v=5.8.34',
+      icon: './icons/icon-192.png?v=5.8.35',
+      badge: './icons/icon-192.png?v=5.8.35',
       vibrate: [200, 100, 200],
       tag: 'recordatorio-cierre-jornada',
       renotify: true,

@@ -1,6 +1,6 @@
 {
   "name": "baremoapp",
-  "version": "5.8.33",
+  "version": "5.8.38",
   "description": "BAREMOS - Registro de producción diaria por baremo",
   "type": "module",
   "scripts": {
@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "express": "^4.21.2",
-    "firebase": "^12.17.1",
-    "sharp": "^0.35.3"
+    "firebase": "^12.17.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

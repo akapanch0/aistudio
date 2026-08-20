@@ -10,15 +10,15 @@
 <meta name="apple-mobile-web-app-title" content="BAREMOS">
 <meta name="application-name" content="BAREMOS">
 <title>BAREMOS - Control de Producción</title>
-<link rel="manifest" href="manifest.json?v=5.8.34">
+<link rel="manifest" href="manifest.json?v=5.8.38">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=5.8.34">
-<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=5.8.34">
-<link rel="apple-touch-icon" href="icons/icon-180.png?v=5.8.34">
-<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png?v=5.8.34">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=5.8.34">
-<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png?v=5.8.34">
-<link rel="stylesheet" href="styles.css?v=5.8.34">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=5.8.38">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=5.8.38">
+<link rel="apple-touch-icon" href="icons/icon-180.png?v=5.8.38">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png?v=5.8.38">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=5.8.38">
+<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png?v=5.8.38">
+<link rel="stylesheet" href="styles.css?v=5.8.38">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.6.0/dist/jspdf.plugin.autotable.min.js"></script>
@@ -578,6 +578,25 @@
   <button class="tab-btn" data-view="Ajustes"><span class="ico">⚙️</span>Ajustes</button>
 </nav>
 
+<div class="modal-backdrop" id="modalUbicacionManual">
+  <div class="modal">
+    <h2 style="font-size:18px;margin-bottom:8px">📍 Ubicación de la Tarea</h2>
+    <p style="font-size:12px;color:var(--text-soft);margin-bottom:14px">
+      No se pudo obtener el GPS automático o se denegó el permiso. Ingresá la dirección o referencia del lugar de trabajo para guardarla en la tarea:
+    </p>
+    <form id="formUbicacionManual">
+      <div class="field">
+        <label>Dirección / Calle y Número / Referencia</label>
+        <input class="input" id="inputManualDireccion" type="text" placeholder="Ej: Av. San Martín 1420, Vicente López" required>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-ghost" id="cancelUbicacionManual">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Confirmar y Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="modalConfirm">
   <div class="modal">
     <h2 style="font-size:18px;margin-bottom:14px">⚠️ Confirmar</h2>
@@ -744,7 +763,7 @@
   </div>
 </div>
 
-<script src="db.js?v=5.8.34"></script>
-<script src="app.js?v=5.8.34"></script>
+<script src="db.js?v=5.8.38"></script>
+<script src="app.js?v=5.8.38"></script>
 </body>
 </html>

@@ -819,7 +819,7 @@ const DEFAULT_BAREMOS = [
   }
 ];
 
-const APP_VERSION = '5.8.34';
+const APP_VERSION = '5.8.38';
 
 const CURRENT_TERMS_VERSION = 1;
 
@@ -909,7 +909,7 @@ function showInfoModal(key) {
 }
 
 /* ============================================================
-   ZONAS Y MAPAS
+   ZONAS Y MAPAS (PRECARGA INTEGRAL Y VISUALIZACIÓN RÁPIDA)
    ============================================================ */
 const ZONA_MAPAS = {
   'Trujui': { archivo: 'trujui.png', nombre: 'Trujui' },
@@ -922,6 +922,17 @@ const ZONA_MAPAS = {
   'Pilar-Escobar': { archivo: 'pilarescobar.png', nombre: 'Pilar-Escobar' }
 };
 
+const preloadedMapImages = {};
+
+function preloadMapas() {
+  Object.keys(ZONA_MAPAS).forEach(k => {
+    const m = ZONA_MAPAS[k];
+    const im = new Image();
+    im.src = `maps/${m.archivo}`;
+    preloadedMapImages[k] = im;
+  });
+}
+
 function mostrarMapaZona(zona) {
   const container = $('#zonaMapaContainer');
   const img = $('#zonaMapaImg');
@@ -929,36 +940,75 @@ function mostrarMapaZona(zona) {
   const titulo = $('#zonaMapaTitulo');
   const nombre = $('#zonaMapaNombre');
   if (!container) return;
+
   if (!zona || !ZONA_MAPAS[zona]) {
-    container.classList.remove('show');
+    if (titulo) titulo.textContent = 'Previsualización de Mapa';
+    if (nombre) nombre.textContent = 'Seleccioná una zona';
+    if (img) img.style.display = 'none';
+    if (placeholder) {
+      placeholder.innerHTML = `<div><span class="zmp-ico">🗺️</span><span>Seleccioná una zona para ver el mapa</span></div>`;
+      placeholder.style.display = 'grid';
+    }
+    container.classList.add('show');
     return;
   }
+
   const mapa = ZONA_MAPAS[zona];
-  titulo.textContent = `Zona: ${mapa.nombre}`;
-  nombre.textContent = mapa.nombre;
-  img.style.display = 'none';
-  placeholder.innerHTML = `<div><span class="zmp-ico">⏳</span><span>Cargando mapa...</span></div>`;
-  placeholder.style.display = 'grid';
-  container.classList.remove('show');
-  void container.offsetWidth;
+  if (titulo) titulo.textContent = `Zona: ${mapa.nombre}`;
+  if (nombre) nombre.textContent = mapa.nombre;
+
+  const targetSrc = `maps/${mapa.archivo}`;
+
+  // Si ya tenemos la imagen precargada en memoria o en DOM
+  const preloaded = preloadedMapImages[zona];
+  if (preloaded && preloaded.complete && preloaded.naturalWidth > 0) {
+    if (img) {
+      img.src = targetSrc;
+      img.style.display = 'block';
+    }
+    if (placeholder) placeholder.style.display = 'none';
+    container.classList.add('show');
+    return;
+  }
+
+  if (img) img.style.display = 'none';
+  if (placeholder) {
+    placeholder.innerHTML = `<div><span class="zmp-ico">⏳</span><span>Cargando mapa de ${mapa.nombre}...</span></div>`;
+    placeholder.style.display = 'grid';
+  }
+  container.classList.add('show');
+
   const nuevaImg = new Image();
   nuevaImg.onload = () => {
-    img.src = `maps/${mapa.archivo}`;
-    img.style.display = 'block';
-    placeholder.style.display = 'none';
+    preloadedMapImages[zona] = nuevaImg;
+    if (img) {
+      img.src = targetSrc;
+      img.style.display = 'block';
+    }
+    if (placeholder) placeholder.style.display = 'none';
     container.classList.add('show');
   };
   nuevaImg.onerror = () => {
-    placeholder.innerHTML = `<div><span class="zmp-ico">⚠️</span><span>Mapa no disponible</span></div>`;
-    placeholder.style.display = 'grid';
+    if (placeholder) {
+      placeholder.innerHTML = `<div><span class="zmp-ico">⚠️</span><span>Mapa no disponible para ${mapa.nombre}</span></div>`;
+      placeholder.style.display = 'grid';
+    }
     container.classList.add('show');
   };
-  nuevaImg.src = `maps/${mapa.archivo}`;
+  nuevaImg.src = targetSrc;
 }
 
 function setupMapaZona() {
   const s = $('#loginZona');
-  if (s) s.addEventListener('change', e => mostrarMapaZona(e.target.value));
+  if (s) {
+    s.addEventListener('change', e => mostrarMapaZona(e.target.value));
+    s.addEventListener('input', e => mostrarMapaZona(e.target.value));
+  }
+  const z2 = $('#newZonaSelect');
+  if (z2) {
+    z2.addEventListener('change', e => mostrarMapaZona(e.target.value));
+    z2.addEventListener('input', e => mostrarMapaZona(e.target.value));
+  }
 }
 
 /* ============================================================
@@ -1379,21 +1429,51 @@ function setAcceptedTermsVersion() {
   catch(e) { console.warn('Error saving terms:', e); }
 }
 
-function mostrarPopupTerminos() {
-  $$('.view').forEach(v => v.classList.remove('active'));
-  $$('.tab-btn').forEach(b => b.classList.remove('active'));
-  
+function isTermsAcceptedForUser(legajo) {
+  if (!legajo) return false;
+  try {
+    return localStorage.getItem('baremos_terms_user_' + legajo) === String(CURRENT_TERMS_VERSION);
+  } catch(e) {
+    return false;
+  }
+}
+
+function setTermsAcceptedForUser(legajo) {
+  setAcceptedTermsVersion();
+  if (legajo) {
+    try {
+      localStorage.setItem('baremos_terms_user_' + legajo, String(CURRENT_TERMS_VERSION));
+    } catch(e) {}
+  }
+}
+
+function mostrarPopupTerminos(onAcceptCallback) {
   const modal = $('#modalTerms');
   const content = $('#termsModalContent');
   if (!modal) {
     console.error('CRÍTICO: No se encontró el modal de términos en el DOM.');
-    continuarInicio();
+    if (onAcceptCallback) onAcceptCallback();
+    else continuarInicio();
     return;
   }
   if (content && INFO_CONTENT && INFO_CONTENT.terminos) {
     content.innerHTML = INFO_CONTENT.terminos.html;
   }
   modal.classList.add('show');
+
+  const btnAccept = $('#btnAcceptTerms');
+  if (btnAccept) {
+    btnAccept.onclick = async (e) => {
+      e.preventDefault();
+      setTermsAcceptedForUser(State.user?.legajo);
+      modal.classList.remove('show');
+      if (onAcceptCallback) {
+        await onAcceptCallback();
+      } else {
+        await continuarInicio();
+      }
+    };
+  }
 }
 
 /* ============================================================
@@ -1540,10 +1620,12 @@ async function init() {
     loadVersion();
     const sv = $('#splashVersion');
     if (sv && State.currentVersion) sv.textContent = `v${State.currentVersion}`;
+    preloadMapas();
     await loadUser();
     await loadNotificationSettings();
     startNotificationScheduler();
     initPWA();
+    initGeoTracking();
   } catch(e) {
     console.error('[Init Error]', e);
     toast('Error al cargar datos iniciales: ' + e.message, 'error');
@@ -1554,12 +1636,7 @@ async function init() {
       const splash = $('.splash');
       if (splash) splash.classList.add('hide');
       
-      const acceptedVersion = getAcceptedTermsVersion();
-      if (acceptedVersion < CURRENT_TERMS_VERSION) {
-        mostrarPopupTerminos();
-      } else {
-        continuarInicio();
-      }
+      continuarInicio();
     } catch(err) {
       console.error('[Splash Fallback Error]', err);
       continuarInicio(); 
@@ -1576,6 +1653,11 @@ async function continuarInicio() {
   if (State.user) {
     try { await loadOrCreateJornada(); } catch (e) {}
     showApp();
+    if (!isTermsAcceptedForUser(State.user.legajo)) {
+      mostrarPopupTerminos(async () => {
+        showApp();
+      });
+    }
   } else { 
     showLogin(); 
   }
@@ -1672,9 +1754,52 @@ async function updateBaremoFromFile(file) {
 
 async function loadUser() {
   try {
-    const c = await dbGet('config', 'activeUser');
-    if (c && c.value) State.user = await dbGet('usuarios', c.value);
-  } catch(e) {}
+    let activeLegajo = null;
+    try {
+      const c = await dbGet('config', 'activeUser');
+      if (c && c.value) activeLegajo = c.value;
+    } catch(e) {}
+
+    if (!activeLegajo) {
+      activeLegajo = localStorage.getItem('baremos_active_user');
+    }
+
+    if (activeLegajo) {
+      let u = null;
+      try {
+        u = await dbGet('usuarios', String(activeLegajo));
+      } catch(e) {}
+
+      if (!u) {
+        try {
+          const allUsers = await dbGetAll('usuarios');
+          u = allUsers.find(x => String(x.legajo) === String(activeLegajo));
+        } catch(e) {}
+      }
+
+      if (!u) {
+        try {
+          const savedData = localStorage.getItem('baremos_active_user_data');
+          if (savedData) {
+            const parsed = JSON.parse(savedData);
+            if (parsed && (String(parsed.legajo) === String(activeLegajo) || !activeLegajo)) {
+              u = parsed;
+              try { await dbPut('usuarios', u); } catch(e) {}
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (u) {
+        State.user = u;
+        localStorage.setItem('baremos_active_user', String(u.legajo));
+        localStorage.setItem('baremos_active_user_data', JSON.stringify(u));
+        try { await dbPut('config', { key: 'activeUser', value: String(u.legajo) }); } catch(e) {}
+      }
+    }
+  } catch(e) {
+    console.error('[loadUser Error]', e);
+  }
 }
 
 function showLogin() {
@@ -1682,6 +1807,32 @@ function showLogin() {
   $$('.tab-btn').forEach(b => b.classList.remove('active'));
   const vl = $('#viewLogin');
   if(vl) vl.classList.add('active');
+
+  setupMapaZona();
+
+  // Precargar / recordar campos si existen en memoria local
+  const savedUserJson = localStorage.getItem('baremos_active_user_data');
+  if (savedUserJson) {
+    try {
+      const su = JSON.parse(savedUserJson);
+      if (su) {
+        if (su.nombre && $('#loginNombre')) $('#loginNombre').value = su.nombre;
+        if (su.legajo && $('#loginLegajo')) $('#loginLegajo').value = su.legajo;
+        if (su.zona && $('#loginZona')) {
+          $('#loginZona').value = su.zona;
+          mostrarMapaZona(su.zona);
+        }
+      }
+    } catch(e) {}
+  }
+
+  const s = $('#loginZona');
+  if (s && s.value) {
+    mostrarMapaZona(s.value);
+  } else {
+    mostrarMapaZona('');
+  }
+
   const f = $('#loginForm');
   if (f) {
     f.onsubmit = async e => {
@@ -1691,20 +1842,46 @@ function showLogin() {
       const z = $('#loginZona').value;
       if (!n || !l) { toast('Completá todos los campos', 'warn'); return; }
       if (!z) { toast('Seleccioná zona', 'warn'); return; }
-      await dbPut('usuarios', { nombre: n, legajo: l, zona: z, creado: ahora() });
-      await dbPut('config', { key: 'activeUser', value: l });
-      State.user = { nombre: n, legajo: l, zona: z };
+
+      const userData = { nombre: n, legajo: l, zona: z, creado: ahora() };
+
+      try {
+        await dbPut('usuarios', userData);
+        await dbPut('config', { key: 'activeUser', value: l });
+      } catch(err) {
+        console.warn('[DB Login Save]', err);
+      }
+
+      localStorage.setItem('baremos_active_user', l);
+      localStorage.setItem('baremos_active_user_data', JSON.stringify(userData));
+
+      State.user = userData;
       $('#viewLogin').classList.remove('active');
-      await loadOrCreateJornada();
+      initGeoTracking();
+      try {
+        await loadOrCreateJornada();
+      } catch(err) {
+        console.warn('[Login Jornada Load]', err);
+      }
       showApp();
-      toast(`¡Bienvenido ${n}!`, 'success');
+
+      if (!isTermsAcceptedForUser(l)) {
+        mostrarPopupTerminos(async () => {
+          showApp();
+          toast(`¡Bienvenido ${n}!`, 'success');
+        });
+      } else {
+        toast(`¡Bienvenido ${n}!`, 'success');
+      }
     };
   }
 }
 
 async function cerrarSesion() {
   if (!await confirmDialog('¿Cerrar sesión?\n\n⚠️ Deberás ingresar con NOMBRE y LEGAJO.\n\nTus datos se mantendrán.')) return;
-  await dbPut('config', { key: 'activeUser', value: '' });
+  try { await dbPut('config', { key: 'activeUser', value: '' }); } catch(e) {}
+  localStorage.removeItem('baremos_active_user');
+  localStorage.removeItem('baremos_active_user_data');
   State.user = null; State.jornada = null; State.items = []; State.currentTarea = { id: null, fecha: '', hora: '', zona: '', items: [], total: 0 };
   const h = $('#headerUser'); if (h) h.textContent = 'Ingresar';
   const hz = $('#headerUserZona'); if (hz) hz.textContent = '';
@@ -1725,7 +1902,9 @@ async function eliminarUsuario(leg) {
   await dbDelete('usuarios', leg);
   
   if (State.user?.legajo === leg) {
-    await dbPut('config', { key: 'activeUser', value: '' });
+    try { await dbPut('config', { key: 'activeUser', value: '' }); } catch(e) {}
+    localStorage.removeItem('baremos_active_user');
+    localStorage.removeItem('baremos_active_user_data');
     State.user = null; State.jornada = null; State.items = []; State.currentTarea = { id: null, fecha: '', hora: '', zona: '', items: [], total: 0 };
     const sw = $('#modalSwitchUser'); if(sw) sw.classList.remove('show');
     showLogin();
@@ -1754,11 +1933,20 @@ async function switchUser() {
       else if (a === 'logout') { e.stopPropagation(); await cerrarSesion(); }
       else {
         State.user = u;
-        await dbPut('config', { key: 'activeUser', value: u.legajo });
+        localStorage.setItem('baremos_active_user', String(u.legajo));
+        localStorage.setItem('baremos_active_user_data', JSON.stringify(u));
+        try { await dbPut('config', { key: 'activeUser', value: u.legajo }); } catch(e) {}
         m.classList.remove('show');
-        await loadOrCreateJornada();
+        try { await loadOrCreateJornada(); } catch(err) {}
         showApp();
-        toast(`Sesión: ${u.nombre}`, 'success');
+        if (!isTermsAcceptedForUser(u.legajo)) {
+          mostrarPopupTerminos(async () => {
+            showApp();
+            toast(`Sesión: ${u.nombre}`, 'success');
+          });
+        } else {
+          toast(`Sesión: ${u.nombre}`, 'success');
+        }
       }
     };
     lst.appendChild(div);
@@ -1774,7 +1962,15 @@ async function switchUser() {
 
 async function loadOrCreateJornada() {
   const f = hoy();
-  const ex = await dbGetByIndex('jornadas', 'fechaLegajo', [f, State.user.legajo]);
+  let ex = [];
+  try {
+    ex = await dbGetByIndex('jornadas', 'fechaLegajo', [f, State.user.legajo]);
+  } catch(e) {
+    try {
+      const allJ = await dbGetAll('jornadas');
+      ex = allJ.filter(j => j.fecha === f && String(j.legajo) === String(State.user.legajo));
+    } catch(e2) {}
+  }
   const ab = ex.filter(j => !j.cerrada);
   State.mensaje200kMostrado = false;
   State.mensaje150kMostrado = false;
@@ -2064,6 +2260,241 @@ function setupRegistro() {
   
   qtyInput.addEventListener('keydown', e => { if (e.key === 'Enter') agregar(); });
 
+/* ============================================================
+   GEOLOCALIZACIÓN INTELIGENTE, EN SEGUNDO PLANO Y CACHÉ RÁPIDA
+   ============================================================ */
+let lastGeoPosition = null;
+let lastGeoAddress = null;
+let geoWatchId = null;
+
+// Carga inicial de última ubicación guardada en localStorage
+try {
+  const savedAddr = localStorage.getItem('baremos_last_geo_address');
+  if (savedAddr) lastGeoAddress = JSON.parse(savedAddr);
+} catch (e) {}
+
+// Reverse geocode con doble proveedor y timeout ultra ágil (máx 1.8s)
+async function reverseGeocodeCoords(lat, lng) {
+  // 1. Proveedor OpenStreetMap
+  try {
+    const ctrl1 = new AbortController();
+    const t1 = setTimeout(() => ctrl1.abort(), 1800);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      {
+        headers: { 'Accept-Language': 'es-AR,es;q=0.9' },
+        signal: ctrl1.signal
+      }
+    );
+    clearTimeout(t1);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.address) {
+        const a = data.address;
+        const calle = a.road || a.pedestrian || a.street || a.suburb || a.neighbourhood || '';
+        const numero = a.house_number || '';
+        const barrio = a.neighbourhood || a.suburb || a.city_district || '';
+        const ciudad = a.city || a.town || a.village || a.municipality || a.county || '';
+        const partes = [];
+        if (calle) partes.push(numero ? `${calle} ${numero}` : calle);
+        if (barrio && barrio !== calle) partes.push(barrio);
+        if (ciudad && ciudad !== barrio) partes.push(ciudad);
+        if (partes.length > 0) return partes.join(', ');
+        if (data.display_name) return data.display_name.split(',').slice(0, 3).join(', ').trim();
+      }
+    }
+  } catch (e) {}
+
+  // 2. Fallback BigDataCloud (Rápido, libre de CORS y liviano)
+  try {
+    const ctrl2 = new AbortController();
+    const t2 = setTimeout(() => ctrl2.abort(), 1500);
+    const res2 = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=es`,
+      { signal: ctrl2.signal }
+    );
+    clearTimeout(t2);
+    if (res2.ok) {
+      const d = await res2.json();
+      const p = [];
+      if (d.locality) p.push(d.locality);
+      if (d.city && d.city !== d.locality) p.push(d.city);
+      if (d.principalSubdivision) p.push(d.principalSubdivision);
+      if (p.length > 0) return p.join(', ');
+    }
+  } catch (e) {}
+
+  return `Ubicación GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+}
+
+// Procesa coordenadas captadas en background y resuelve dirección
+async function processGeoPosition(pos) {
+  if (!pos || !pos.coords) return;
+  const lat = pos.coords.latitude;
+  const lng = pos.coords.longitude;
+  const accuracy = Math.round(pos.coords.accuracy || 0);
+
+  lastGeoPosition = { lat, lng, accuracy, time: Date.now() };
+
+  // Si ya tenemos dirección reciente y cerca (< 150m), reutilizamos
+  if (lastGeoAddress && lastGeoAddress.coords) {
+    const dist = Math.hypot(lat - lastGeoAddress.coords.lat, lng - lastGeoAddress.coords.lng);
+    if (dist < 0.0015 && (Date.now() - (lastGeoAddress.time || 0)) < 600000) {
+      return;
+    }
+  }
+
+  // Resolver en segundo plano
+  const direccion = await reverseGeocodeCoords(lat, lng);
+  lastGeoAddress = {
+    direccion,
+    coords: { lat, lng, accuracy },
+    time: Date.now()
+  };
+
+  try {
+    localStorage.setItem('baremos_last_geo_address', JSON.stringify(lastGeoAddress));
+  } catch (e) {}
+}
+
+// Iniciar rastreo de ubicación anticipado (al iniciar app o loguearse)
+function initGeoTracking() {
+  if (!('geolocation' in navigator)) return;
+
+  // 1. Lectura rápida sin bloqueo
+  try {
+    navigator.geolocation.getCurrentPosition(
+      pos => processGeoPosition(pos),
+      err => { console.warn('[Geo Background Init]', err.message); },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+    );
+  } catch(e) {}
+
+  // 2. Monitoreo continuo silencioso para tener la ubicación 100% lista
+  if (!geoWatchId) {
+    try {
+      geoWatchId = navigator.geolocation.watchPosition(
+        pos => processGeoPosition(pos),
+        err => { /* Silencioso */ },
+        { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
+      );
+    } catch (e) {}
+  }
+}
+
+// Refrescar rastreo al recuperar foco de la app
+window.addEventListener('focus', () => initGeoTracking());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') initGeoTracking();
+});
+
+function pedirDireccionManualModal(sugerencia = '') {
+  return new Promise(resolve => {
+    const modal = $('#modalUbicacionManual');
+    const form = $('#formUbicacionManual');
+    const input = $('#inputManualDireccion');
+    const cancel = $('#cancelUbicacionManual');
+    
+    if (!modal || !form || !input) {
+      const resp = prompt('📍 Ingresá la dirección o referencia del lugar de trabajo:', sugerencia);
+      resolve(resp ? resp.trim() : null);
+      return;
+    }
+
+    input.value = sugerencia;
+    modal.classList.add('show');
+    input.focus();
+
+    const cleanUp = () => {
+      modal.classList.remove('show');
+      form.onsubmit = null;
+      if (cancel) cancel.onclick = null;
+    };
+
+    form.onsubmit = e => {
+      e.preventDefault();
+      const val = input.value.trim();
+      cleanUp();
+      resolve(val || (sugerencia || 'Ubicación sin especificar'));
+    };
+
+    if (cancel) {
+      cancel.onclick = () => {
+        cleanUp();
+        resolve(null);
+      };
+    }
+  });
+}
+
+// Obtención instantánea y fluida de ubicación
+async function obtenerUbicacionTarea() {
+  // 1. ¿Tenemos ya la dirección resuelta en caché reciente (< 20 mins)? -> Retorno INMEDIATO (0ms)
+  if (lastGeoAddress && lastGeoAddress.direccion && (Date.now() - (lastGeoAddress.time || 0) < 1200000)) {
+    return {
+      direccion: lastGeoAddress.direccion,
+      coords: lastGeoAddress.coords || null
+    };
+  }
+
+  // 2. ¿Tenemos coordenadas recientes en memoria? -> Retorno ultra rápido
+  if (lastGeoPosition && (Date.now() - (lastGeoPosition.time || 0) < 600000)) {
+    const { lat, lng, accuracy } = lastGeoPosition;
+    let dir = `Ubicación GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+    try {
+      const resolved = await Promise.race([
+        reverseGeocodeCoords(lat, lng),
+        new Promise(r => setTimeout(() => r(null), 900))
+      ]);
+      if (resolved) dir = resolved;
+    } catch (e) {}
+
+    const resObj = { direccion: dir, coords: { lat, lng, accuracy } };
+    lastGeoAddress = { ...resObj, time: Date.now() };
+    return resObj;
+  }
+
+  // 3. Si no hay nada previo en caché, intento ultra-rápido de GPS con corte en 1.2s
+  if ('geolocation' in navigator) {
+    try {
+      const quickPos = await new Promise((resolve, reject) => {
+        const to = setTimeout(() => reject(new Error('timeout')), 1200);
+        navigator.geolocation.getCurrentPosition(
+          p => { clearTimeout(to); resolve(p); },
+          e => { clearTimeout(to); reject(e); },
+          { enableHighAccuracy: false, timeout: 1100, maximumAge: 300000 }
+        );
+      });
+
+      if (quickPos && quickPos.coords) {
+        const lat = quickPos.coords.latitude;
+        const lng = quickPos.coords.longitude;
+        const accuracy = Math.round(quickPos.coords.accuracy || 0);
+        
+        let dir = `Ubicación GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        try {
+          const resolved = await Promise.race([
+            reverseGeocodeCoords(lat, lng),
+            new Promise(r => setTimeout(() => r(null), 800))
+          ]);
+          if (resolved) dir = resolved;
+        } catch (e) {}
+
+        const resObj = { direccion: dir, coords: { lat, lng, accuracy } };
+        lastGeoAddress = { ...resObj, time: Date.now() };
+        return resObj;
+      }
+    } catch (e) {
+      console.warn('[Quick GPS fallback]', e);
+    }
+  }
+
+  // 4. Si el GPS está desactivado o denegado, solicitamos modal rápido o usamos Zona
+  const defaultSug = State.user?.zona ? `Zona ${State.user.zona}` : 'Lugar de trabajo';
+  const manual = await pedirDireccionManualModal(defaultSug);
+  return manual ? { direccion: manual, coords: null } : { direccion: defaultSug, coords: null };
+}
+
   // IMPLEMENTACIÓN ESTRICTA ASÍNCRONA PARA IMPACTO INMEDIATO EN LA UI
   const btnFinalizar = $('#btnFinalizarTarea');
   if (btnFinalizar) {
@@ -2072,15 +2503,35 @@ function setupRegistro() {
         toast('La tarea no tiene baremos agregados', 'warn');
         return;
       }
+
+      const prevText = btnFinalizar.innerHTML;
+      btnFinalizar.disabled = true;
+      btnFinalizar.innerHTML = '📍 Guardando tarea...';
+
+      let loc = null;
+      try {
+        loc = await obtenerUbicacionTarea();
+      } catch (err) {
+        console.error('[Error al obtener ubicacion]', err);
+      } finally {
+        btnFinalizar.disabled = false;
+        btnFinalizar.innerHTML = prevText;
+      }
+
+      if (!loc || !loc.direccion) {
+        loc = { direccion: State.user?.zona ? `Zona ${State.user.zona}` : 'Lugar de trabajo', coords: null };
+      }
       
       const backupTareas = State.jornada.tareas ? [...State.jornada.tareas] : [];
       
-      // Empaquetado completo (Deep Copy) para evitar borrados por referencias
+      // Empaquetado completo (Deep Copy) con ubicación y coordenadas
       const nuevaTareaConfirmada = {
         id: Date.now() + Math.random(),
         fecha: hoy(),
         hora: new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}),
         zona: State.user.zona || 'Sin zona',
+        direccion: loc.direccion,
+        coords: loc.coords || null,
         items: JSON.parse(JSON.stringify(State.currentTarea.items)),
         total: State.currentTarea.total
       };
@@ -2092,9 +2543,9 @@ function setupRegistro() {
         // Bloqueo de la función hasta que el disco confirme la escritura
         await saveJornada(); 
         // Vaciado en memoria del input y renderizado instantáneo
-        State.currentTarea = { id: null, fecha: '', hora: '', zona: '', items: [], total: 0 };
+        State.currentTarea = { id: null, fecha: '', hora: '', zona: '', direccion: '', coords: null, items: [], total: 0 };
         renderAll();
-        toast('Tarea finalizada y guardada exitosamente', 'success');
+        toast('✅ Tarea finalizada con éxito', 'success');
       } catch (e) {
         // En caso de fallo de hardware o límite de cuota, restauramos para no perder
         State.jornada.tareas = backupTareas;
@@ -2163,15 +2614,28 @@ function renderItems() {
         <div class="tarea-header" style="cursor:pointer;" onclick="this.parentElement.classList.toggle('expanded')">
           <div style="flex:1;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="color:var(--primary); font-weight:800; font-size:13px; text-transform:uppercase;">
+              <span style="color:var(--primary); font-weight:800; font-size:14px; text-transform:uppercase; letter-spacing:0.5px;">
                 TAREA ${originalIdx}
               </span>
               <span class="expand-ico">▼</span>
             </div>
-            <div style="font-size:11px; color:var(--text-soft); margin-top:6px; font-weight:600; display:flex; flex-direction:column; gap:4px;">
-              <span>Fecha: ${fechaCorta(fDate)}${fHora}</span>
-              <span>Zona: ${fZona}</span>
-              <span style="color:var(--text); font-weight:700; margin-top:2px;">Total de la tarea: ${fmt(t.total)}</span>
+            <div style="font-size:12px; color:var(--text-soft); margin-top:6px; font-weight:600; display:flex; flex-direction:column; gap:4px;">
+              <div><strong style="color:var(--text)">Fecha:</strong> ${fechaCorta(fDate)}${fHora}</div>
+              <div><strong style="color:var(--text)">Zona:</strong> ${fZona}</div>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:2px;">
+                <strong style="color:var(--text)">Dirección:</strong>
+                ${t.direccion ? `
+                  <span style="color:var(--primary); font-weight:700; background:rgba(11, 61, 145, 0.09); padding:2px 8px; border-radius:4px; border:1px solid rgba(11, 61, 145, 0.25);">
+                    📍 ${t.direccion}
+                  </span>
+                  ${t.coords ? `<a href="https://www.google.com/maps?q=${t.coords.lat},${t.coords.lng}" target="_blank" rel="noopener" style="color:var(--primary); font-size:11px; text-decoration:underline; font-weight:700;" onclick="event.stopPropagation();">🗺️ Ver mapa</a>` : ''}
+                ` : `
+                  <span style="color:var(--text-soft); font-style:italic; opacity:0.8;">📍 Sin dirección registrada</span>
+                `}
+              </div>
+              <div style="color:var(--text); font-weight:800; margin-top:4px; font-size:13px;">
+                Total de la tarea: <span style="color:var(--primary); font-weight:800;">${fmt(t.total)}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -2193,7 +2657,17 @@ function renderItems() {
               </tbody>
             </table>
           </div>
-          <div class="tarea-footer" style="justify-content: flex-end;">
+          <div class="tarea-footer">
+            <div class="tarea-actions-left">
+              ${!State.jornada.cerrada ? `
+                <button type="button" class="btn-tarea-action btn-tarea-del" data-id="${t.id}" title="Eliminar tarea">
+                  🗑️ Eliminar
+                </button>
+                <button type="button" class="btn-tarea-action btn-tarea-edit" data-id="${t.id}" title="Editar tarea">
+                  ✏️ Editar
+                </button>
+              ` : ''}
+            </div>
             <div class="tarea-total">
               TOTAL DE LA TAREA: <span style="color: var(--primary); font-weight: 800;">${fmt(t.total)}</span>
             </div>
@@ -2205,6 +2679,51 @@ function renderItems() {
     // Expandir la más reciente automáticamente
     const firstCard = tl.querySelector('.tarea-card');
     if (firstCard) firstCard.classList.add('expanded');
+
+    // Manejadores para Eliminar y Editar Tarea
+    tl.querySelectorAll('.btn-tarea-del').forEach(btn => {
+      btn.onclick = async e => {
+        e.stopPropagation();
+        const id = parseFloat(btn.dataset.id);
+        if (!await confirmDialog('¿Estás seguro de eliminar esta tarea de la jornada?')) return;
+        State.jornada.tareas = (State.jornada.tareas || []).filter(t => t.id !== id);
+        await saveJornada();
+        renderAll();
+        toast('Tarea eliminada correctamente', 'success');
+      };
+    });
+
+    tl.querySelectorAll('.btn-tarea-edit').forEach(btn => {
+      btn.onclick = async e => {
+        e.stopPropagation();
+        const id = parseFloat(btn.dataset.id);
+        const tarea = (State.jornada.tareas || []).find(t => t.id === id);
+        if (!tarea) return;
+
+        if (State.currentTarea && State.currentTarea.items && State.currentTarea.items.length > 0) {
+          if (!await confirmDialog('Ya tenés una tarea en curso. ¿Deseás reemplazarla con esta tarea para editarla?')) return;
+        }
+
+        // Cargar ítems a la tarea en curso y remover de finalizadas
+        State.currentTarea = {
+          id: tarea.id,
+          fecha: tarea.fecha,
+          hora: tarea.hora,
+          zona: tarea.zona,
+          direccion: tarea.direccion || '',
+          coords: tarea.coords || null,
+          items: JSON.parse(JSON.stringify(tarea.items)),
+          total: tarea.total
+        };
+        State.jornada.tareas = (State.jornada.tareas || []).filter(t => t.id !== id);
+        await saveJornada();
+        renderAll();
+        toast('Tarea cargada para edición. Realizá los cambios y presioná "Finalizar tarea" al terminar.', 'info');
+        
+        const topEl = $('#currentTaskCard') || $('#baremoInput');
+        if (topEl) topEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+    });
   }
 }
 
@@ -2247,6 +2766,10 @@ function renderTotales() {
 
 function showView(n) {
   if (!n) return;
+  if (!State.user) {
+    showLogin();
+    return;
+  }
   $$('.view').forEach(v => v.classList.remove('active'));
   const vn = $(`#view${n}`); if(vn) vn.classList.add('active');
   $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === n));
@@ -2359,7 +2882,13 @@ async function openJornada(id) {
     tareas.forEach((t, idx) => {
       const isLegacy = t.referencia === 'Registros Anteriores';
       const labelTarea = isLegacy ? 'REGISTROS ANTERIORES' : `TAREA ${String(idx+1).padStart(3,'0')}`;
-      html += `<tr style="background:var(--surface-2)"><td colspan="6" style="font-weight:800; color:var(--primary); font-size:11px;">${labelTarea}</td></tr>`;
+      const subInfo = [
+        t.hora ? `Hora: ${t.hora}` : null,
+        t.zona ? `Zona: ${t.zona}` : null,
+        t.direccion ? `📍 ${t.direccion}` : null
+      ].filter(Boolean).join(' · ');
+
+      html += `<tr style="background:var(--surface-2)"><td colspan="6" style="padding:8px 10px;"><div style="font-weight:800; color:var(--primary); font-size:12px;">${labelTarea}</div>${subInfo ? `<div style="font-size:11px; color:var(--text-soft); font-weight:600; margin-top:2px;">${subInfo}</div>` : ''}</td></tr>`;
       t.items.forEach((it, i) => {
          html += `<tr><td class="hide-mob">${i + 1}</td><td><strong>${it.codigo}</strong></td><td class="td-desc" style="font-size:11px" title="${it.descripcion}">${it.descripcion}</td><td class="hide-mob">${fmt(it.precio)}</td><td>${it.cantidad}</td><td>${fmt(it.subtotal)}</td></tr>`;
       });
@@ -2400,7 +2929,7 @@ async function exportarJornadaPDF(id) {
   const body = [];
   tareas.forEach((t, idx) => {
     const isLegacy = t.referencia === 'Registros Anteriores';
-    const labelTarea = isLegacy ? 'REGISTROS ANTERIORES' : `TAREA ${String(idx + 1).padStart(3, '0')}`;
+    const labelTarea = isLegacy ? 'REGISTROS ANTERIORES' : `TAREA ${String(idx + 1).padStart(3, '0')}${t.direccion ? ` (📍 ${t.direccion})` : ''}`;
     body.push([{ content: labelTarea, colSpan: 6, styles: { fillColor: [240, 243, 249], fontStyle: 'bold', textColor: [11, 61, 145] } }]);
     t.items.forEach((it, i) => {
       body.push([i + 1, it.codigo, it.descripcion, it.cantidad, fmt(it.precio), fmt(it.subtotal)]);
@@ -3076,6 +3605,8 @@ function renderAjustes() {
     <div class="ajuste-item" data-act="restore"><div class="aj-ico">📤</div><div class="aj-text"><div class="aj-title">Restaurar</div><div class="aj-desc">Recuperar datos</div></div><div class="aj-arrow">›</div></div>
     <div class="ajuste-item" data-act="theme"><div class="aj-ico">${State.theme === 'light' ? '🌙' : '☀️'}</div><div class="aj-text"><div class="aj-title">Modo ${State.theme === 'light' ? 'oscuro' : 'claro'}</div></div><div class="aj-arrow">›</div></div>
     <div class="ajuste-item warn" data-act="users"><div class="aj-ico">👥</div><div class="aj-text"><div class="aj-title">Gestionar usuarios</div></div><div class="aj-arrow">›</div></div>
+    <div class="ajuste-item" data-act="terminos"><div class="aj-ico">🛡️</div><div class="aj-text"><div class="aj-title">Términos y Condiciones</div><div class="aj-desc">Bases, condiciones y responsabilidades</div></div><div class="aj-arrow">›</div></div>
+    <div class="ajuste-item" data-act="privacidad"><div class="aj-ico">🔒</div><div class="aj-text"><div class="aj-title">Política de Privacidad</div><div class="aj-desc">Tratamiento local de datos</div></div><div class="aj-arrow">›</div></div>
     <div class="ajuste-item admin" data-act="admin"><div class="aj-ico">🔐</div><div class="aj-text"><div class="aj-title">Panel de Administración</div><div class="aj-desc">Reportes, consolidación y seguridad</div></div><div class="aj-arrow">›</div></div>
     
     <div class="credits">
@@ -3104,6 +3635,8 @@ function renderAjustes() {
       else if (a === 'restore') restoreInput();
       else if (a === 'theme') { toggleTheme(); renderAjustes(); }
       else if (a === 'users') switchUser();
+      else if (a === 'terminos') showInfoModal('terminos');
+      else if (a === 'privacidad') showInfoModal('privacidad');
       else if (a === 'admin') showView('Admin');
     };
   });
@@ -3630,10 +4163,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const btnAcceptTerms = $('#btnAcceptTerms');
       if (btnAcceptTerms) {
         btnAcceptTerms.onclick = async () => {
-          setAcceptedTermsVersion();
+          setTermsAcceptedForUser(State.user?.legajo);
           const modal = $('#modalTerms');
           if (modal) modal.classList.remove('show');
-          await continuarInicio();
+          if (State.user) {
+            showApp();
+          } else {
+            await continuarInicio();
+          }
         };
       }
       

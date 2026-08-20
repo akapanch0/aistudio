@@ -1,5 +1,5 @@
 {
-  "version": "5.8.34",
-  "releaseDate": "2026-08-18",
-  "changelog": "Actualización completa de baremos predeterminados y corrección de la búsqueda al primer inicio e instalación."
+  "version": "5.8.38",
+  "releaseDate": "2026-08-19",
+  "changelog": "Flujo de inicio de sesión optimizado: redirección automática inmediata al front Registro y aceptación de términos y condiciones en primer login o cambio de usuario."
 }

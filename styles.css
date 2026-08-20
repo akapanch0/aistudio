@@ -141,8 +141,46 @@ tbody tr.adding { animation: rowIn .45s ease-out; }
 .tarea-card.expanded .tarea-body { display: block; }
 .expand-ico { transition: transform 0.3s; display: inline-block; font-size: 12px; color: var(--text-soft); }
 .tarea-card.expanded .expand-ico { transform: rotate(180deg); }
-.tarea-footer { padding: 12px 14px; background: var(--surface); display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border); }
-.tarea-total { font-weight: 800; font-size: 15px; }
+.tarea-footer { padding: 12px 14px; background: var(--surface); display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border); flex-wrap: wrap; gap: 10px; }
+.tarea-actions-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn-tarea-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-tarea-action:hover {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+}
+.btn-tarea-del {
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
+.btn-tarea-del:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: #dc2626;
+}
+.btn-tarea-edit {
+  color: var(--primary);
+  border-color: rgba(11, 61, 145, 0.35);
+  background: rgba(11, 61, 145, 0.08);
+}
+.btn-tarea-edit:hover {
+  background: rgba(11, 61, 145, 0.16);
+  border-color: var(--primary);
+}
+.tarea-total { font-weight: 800; font-size: 14px; margin-left: auto; }
 
 .bg-green-intense { background: linear-gradient(135deg, #16a34a, #22c55e); }
 .bg-green-soft { background: linear-gradient(135deg, #65a30d, #84cc16); }
