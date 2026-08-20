@@ -27,7 +27,10 @@ const itemsToCopy = [
   'VERSION',
   'icons',
   'maps',
-  'metadata.json'
+  'metadata.json',
+  'server.js',
+  'server.ts',
+  'package.json'
 ];
 
 for (const item of itemsToCopy) {
