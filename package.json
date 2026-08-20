@@ -3,6 +3,9 @@
   "version": "5.8.39",
   "description": "BAREMOS - Registro de producción diaria por baremo",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "node server.ts",
     "build": "node build.js",
