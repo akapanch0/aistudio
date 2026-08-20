@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "Usuario": {
+      "title": "Usuario",
+      "description": "Perfil de usuario del sistema BAREMOS",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "nombre": { "type": "string", "maxLength": 100 },
+        "legajo": { "type": "string", "maxLength": 50 },
+        "rol": { "type": "string", "enum": ["operario", "supervisor", "admin"] },
+        "activo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "nombre", "legajo", "rol"]
+    },
+    "Jornada": {
+      "title": "Jornada",
+      "description": "Registro de jornada laboral de operario",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "fecha": { "type": "string", "maxLength": 20 },
+        "cerrada": { "type": "boolean" },
+        "horaCierre": { "type": "string", "maxLength": 20 },
+        "zona": { "type": "string", "maxLength": 50 },
+        "totalPuntos": { "type": "number" },
+        "totalPesos": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "fecha"]
+    },
+    "Configuracion": {
+      "title": "Configuracion",
+      "description": "Configuraciones y preferencias",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string", "maxLength": 100 },
+        "value": { "type": "string", "maxLength": 500 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["key", "userId"]
+    }
+  },
+  "firestore": {
+    "/usuarios/{userId}": {
+      "schema": "Usuario",
+      "description": "Colección de perfiles de usuario"
+    },
+    "/jornadas/{jornadaId}": {
+      "schema": "Jornada",
+      "description": "Colección de jornadas de trabajo"
+    },
+    "/usuarios/{userId}/configuracion/{configKey}": {
+      "schema": "Configuracion",
+      "description": "Configuración de preferencias por usuario"
+    }
+  }
+}

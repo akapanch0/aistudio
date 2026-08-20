@@ -1,0 +1,8 @@
+{
+  "name": "BAREMOS",
+  "description": "Aplicación para contratistas y cuadrillas para registrar tareas, calcular baremos, quincenas y combustibles",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

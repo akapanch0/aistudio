@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Catch-All Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'jagarcia0109@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Validation blueprints
+    function isValidUsuario(data) {
+      return data.keys().hasAll(['id', 'nombre', 'legajo', 'rol']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.nombre is string && data.nombre.size() <= 100 &&
+        data.legajo is string && data.legajo.size() <= 50 &&
+        data.rol in ['operario', 'supervisor', 'admin'];
+    }
+
+    function isValidJornada(data) {
+      return data.keys().hasAll(['id', 'userId', 'fecha']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.userId is string && data.userId.size() <= 128 &&
+        data.fecha is string && data.fecha.size() <= 20;
+    }
+
+    function isValidConfiguracion(data) {
+      return data.keys().hasAll(['key', 'userId']) &&
+        data.key is string && data.key.size() <= 100 &&
+        data.userId is string && data.userId.size() <= 128;
+    }
+
+    // Colección de Usuarios
+    match /usuarios/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isValidId(userId) && isOwner(userId) && isValidUsuario(incoming());
+      allow update: if isSignedIn() && isValidId(userId) && (isOwner(userId) || isAdmin()) && isValidUsuario(incoming()) && incoming().id == existing().id;
+      allow delete: if isAdmin();
+
+      // Subcolección de Configuración
+      match /configuracion/{configKey} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create, update: if isValidId(configKey) && (isOwner(userId) || isAdmin()) && isValidConfiguracion(incoming());
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Colección de Jornadas
+    match /jornadas/{jornadaId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(jornadaId) && incoming().userId == request.auth.uid && isValidJornada(incoming());
+      allow update: if isSignedIn() && isValidId(jornadaId) && (existing().userId == request.auth.uid || isAdmin()) && isValidJornada(incoming()) && incoming().userId == existing().userId;
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    // Colección de Administradores
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
