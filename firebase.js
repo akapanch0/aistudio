@@ -41,7 +41,7 @@ export function handleFirestoreError(error, operationType, path) {
 export async function initFirebase() {
   if (isInitialized) return { app, auth, db };
   try {
-    const res = await fetch('./firebase-applet-config.json?v=5.8.34');
+    const res = await fetch('./firebase-applet-config.json?v=5.8.39');
     firebaseConfig = await res.json();
     
     app = initializeApp(firebaseConfig);

@@ -10,6 +10,14 @@ if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
 }
 
+// Clean up any stray bun lockfiles to prevent cloud buildpack mismatches
+for (const lockfile of ['bun.lock', 'bun.lockb']) {
+  const p = path.join(__dirname, lockfile);
+  if (fs.existsSync(p)) {
+    try { fs.unlinkSync(p); } catch {}
+  }
+}
+
 // Copy files and directories to dist
 const itemsToCopy = [
   'index.html',
