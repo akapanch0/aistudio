@@ -2317,11 +2317,52 @@ function setupRegistro() {
   qtyInput.addEventListener('keydown', e => { if (e.key === 'Enter') agregar(); });
 
 /* ============================================================
-   GEOLOCALIZACIÓN INTELIGENTE, EN SEGUNDO PLANO Y CACHÉ RÁPIDA
+   GEOLOCALIZACIÓN INTELIGENTE, EN SEGUNDO PLANO Y CACHÉ RÁPIDA (100% OFFLINE PWA)
    ============================================================ */
 let lastGeoPosition = null;
 let lastGeoAddress = null;
 let geoWatchId = null;
+
+// Base de datos de zonas georreferenciadas offline
+const OFFLINE_ZONAS_GEO = [
+  { nombre: 'Moreno', lat: -34.6504, lng: -58.7891, radioKm: 7 },
+  { nombre: 'Trujui', lat: -34.5821, lng: -58.7420, radioKm: 5 },
+  { nombre: 'Cuartel V', lat: -34.5500, lng: -58.8350, radioKm: 7 },
+  { nombre: 'Gral. Rodríguez', lat: -34.6080, lng: -58.9550, radioKm: 8 },
+  { nombre: 'San Martín', lat: -34.5772, lng: -58.5361, radioKm: 6 },
+  { nombre: 'Tigre', lat: -34.4260, lng: -58.5790, radioKm: 7 },
+  { nombre: 'Olivos', lat: -34.5090, lng: -58.4870, radioKm: 5 },
+  { nombre: 'Pilar', lat: -34.4580, lng: -58.9140, radioKm: 8 },
+  { nombre: 'Escobar', lat: -34.3480, lng: -58.7980, radioKm: 8 },
+  { nombre: 'San Miguel', lat: -34.5420, lng: -58.7120, radioKm: 5 },
+  { nombre: 'José C. Paz', lat: -34.5150, lng: -58.7680, radioKm: 5 },
+  { nombre: 'Malvinas Argentinas', lat: -34.5000, lng: -58.7000, radioKm: 6 },
+  { nombre: 'Hurlingham', lat: -34.5880, lng: -58.6380, radioKm: 5 },
+  { nombre: 'Morón', lat: -34.6520, lng: -58.6200, radioKm: 5 },
+  { nombre: 'Merlo', lat: -34.6650, lng: -58.7280, radioKm: 6 },
+  { nombre: 'Tres de Febrero', lat: -34.6000, lng: -58.5600, radioKm: 5 },
+  { nombre: 'Vicente López', lat: -34.5280, lng: -58.4720, radioKm: 5 },
+  { nombre: 'San Isidro', lat: -34.4710, lng: -58.5280, radioKm: 6 },
+  { nombre: 'San Fernando', lat: -34.4440, lng: -58.5580, radioKm: 6 }
+];
+
+function resolverZonaOffline(lat, lng) {
+  let mejorMatch = null;
+  let distMinima = Infinity;
+  for (const z of OFFLINE_ZONAS_GEO) {
+    const dLat = (lat - z.lat) * 111.32;
+    const dLng = (lng - z.lng) * 40075 * Math.cos((lat * Math.PI) / 180) / 360;
+    const distKm = Math.hypot(dLat, dLng);
+    if (distKm < distMinima) {
+      distMinima = distKm;
+      mejorMatch = z;
+    }
+  }
+  if (mejorMatch && distMinima <= (mejorMatch.radioKm || 8)) {
+    return `${mejorMatch.nombre} (GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+  }
+  return `Ubicación GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+}
 
 // Carga inicial de última ubicación guardada en localStorage
 try {
@@ -2329,12 +2370,17 @@ try {
   if (savedAddr) lastGeoAddress = JSON.parse(savedAddr);
 } catch (e) {}
 
-// Reverse geocode con doble proveedor y timeout ultra ágil (máx 1.8s)
+// Reverse geocode con fallback offline inmediato
 async function reverseGeocodeCoords(lat, lng) {
+  // Si estamos offline, resolver inmediatamente con la base de zonas local (0ms)
+  if (!navigator.onLine) {
+    return resolverZonaOffline(lat, lng);
+  }
+
   // 1. Proveedor OpenStreetMap
   try {
     const ctrl1 = new AbortController();
-    const t1 = setTimeout(() => ctrl1.abort(), 1800);
+    const t1 = setTimeout(() => ctrl1.abort(), 1200);
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
       {
@@ -2361,10 +2407,10 @@ async function reverseGeocodeCoords(lat, lng) {
     }
   } catch (e) {}
 
-  // 2. Fallback BigDataCloud (Rápido, libre de CORS y liviano)
+  // 2. Fallback BigDataCloud
   try {
     const ctrl2 = new AbortController();
-    const t2 = setTimeout(() => ctrl2.abort(), 1500);
+    const t2 = setTimeout(() => ctrl2.abort(), 1000);
     const res2 = await fetch(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=es`,
       { signal: ctrl2.signal }
@@ -2380,10 +2426,11 @@ async function reverseGeocodeCoords(lat, lng) {
     }
   } catch (e) {}
 
-  return `Ubicación GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+  // 3. Fallback inteligente a base offline local
+  return resolverZonaOffline(lat, lng);
 }
 
-// Procesa coordenadas captadas en background y resuelve dirección
+// Procesa coordenadas captadas en background y resuelve dirección de forma silenciosa
 async function processGeoPosition(pos) {
   if (!pos || !pos.coords) return;
   const lat = pos.coords.latitude;
@@ -2413,7 +2460,7 @@ async function processGeoPosition(pos) {
   } catch (e) {}
 }
 
-// Iniciar rastreo de ubicación anticipado (al iniciar app o loguearse)
+// Iniciar rastreo de ubicación silencioso, continuo y de bajo impacto
 function initGeoTracking() {
   if (!('geolocation' in navigator)) return;
 
@@ -2421,18 +2468,18 @@ function initGeoTracking() {
   try {
     navigator.geolocation.getCurrentPosition(
       pos => processGeoPosition(pos),
-      err => { console.warn('[Geo Background Init]', err.message); },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+      err => { /* Silencioso */ },
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
     );
   } catch(e) {}
 
-  // 2. Monitoreo continuo silencioso para tener la ubicación 100% lista
+  // 2. Monitoreo continuo silencioso
   if (!geoWatchId) {
     try {
       geoWatchId = navigator.geolocation.watchPosition(
         pos => processGeoPosition(pos),
         err => { /* Silencioso */ },
-        { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
+        { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
       );
     } catch (e) {}
   }
@@ -2452,8 +2499,7 @@ function pedirDireccionManualModal(sugerencia = '') {
     const cancel = $('#cancelUbicacionManual');
     
     if (!modal || !form || !input) {
-      const resp = prompt('📍 Ingresá la dirección o referencia del lugar de trabajo:', sugerencia);
-      resolve(resp ? resp.trim() : null);
+      resolve(sugerencia || 'Lugar de trabajo');
       return;
     }
 
@@ -2483,7 +2529,7 @@ function pedirDireccionManualModal(sugerencia = '') {
   });
 }
 
-// Obtención instantánea y fluida de ubicación
+// Obtención instantánea, fluida y 100% no-intrusiva de ubicación
 async function obtenerUbicacionTarea() {
   // 1. ¿Tenemos ya la dirección resuelta en caché reciente (< 20 mins)? -> Retorno INMEDIATO (0ms)
   if (lastGeoAddress && lastGeoAddress.direccion && (Date.now() - (lastGeoAddress.time || 0) < 1200000)) {
@@ -2493,32 +2539,34 @@ async function obtenerUbicacionTarea() {
     };
   }
 
-  // 2. ¿Tenemos coordenadas recientes en memoria? -> Retorno ultra rápido
+  // 2. ¿Tenemos coordenadas recientes en memoria? -> Retorno ultra rápido con resolución local
   if (lastGeoPosition && (Date.now() - (lastGeoPosition.time || 0) < 600000)) {
     const { lat, lng, accuracy } = lastGeoPosition;
-    let dir = `Ubicación GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-    try {
-      const resolved = await Promise.race([
-        reverseGeocodeCoords(lat, lng),
-        new Promise(r => setTimeout(() => r(null), 900))
-      ]);
-      if (resolved) dir = resolved;
-    } catch (e) {}
+    let dir = resolverZonaOffline(lat, lng);
+    if (navigator.onLine) {
+      try {
+        const resolved = await Promise.race([
+          reverseGeocodeCoords(lat, lng),
+          new Promise(r => setTimeout(() => r(null), 600))
+        ]);
+        if (resolved) dir = resolved;
+      } catch (e) {}
+    }
 
     const resObj = { direccion: dir, coords: { lat, lng, accuracy } };
     lastGeoAddress = { ...resObj, time: Date.now() };
     return resObj;
   }
 
-  // 3. Si no hay nada previo en caché, intento ultra-rápido de GPS con corte en 1.2s
+  // 3. Si no hay nada previo en memoria, intento de lectura rápida silenciosa (máx 800ms)
   if ('geolocation' in navigator) {
     try {
       const quickPos = await new Promise((resolve, reject) => {
-        const to = setTimeout(() => reject(new Error('timeout')), 1200);
+        const to = setTimeout(() => reject(new Error('timeout')), 800);
         navigator.geolocation.getCurrentPosition(
           p => { clearTimeout(to); resolve(p); },
           e => { clearTimeout(to); reject(e); },
-          { enableHighAccuracy: false, timeout: 1100, maximumAge: 300000 }
+          { enableHighAccuracy: true, timeout: 750, maximumAge: 60000 }
         );
       });
 
@@ -2527,28 +2575,27 @@ async function obtenerUbicacionTarea() {
         const lng = quickPos.coords.longitude;
         const accuracy = Math.round(quickPos.coords.accuracy || 0);
         
-        let dir = `Ubicación GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-        try {
-          const resolved = await Promise.race([
-            reverseGeocodeCoords(lat, lng),
-            new Promise(r => setTimeout(() => r(null), 800))
-          ]);
-          if (resolved) dir = resolved;
-        } catch (e) {}
+        let dir = resolverZonaOffline(lat, lng);
+        if (navigator.onLine) {
+          try {
+            const resolved = await Promise.race([
+              reverseGeocodeCoords(lat, lng),
+              new Promise(r => setTimeout(() => r(null), 500))
+            ]);
+            if (resolved) dir = resolved;
+          } catch (e) {}
+        }
 
         const resObj = { direccion: dir, coords: { lat, lng, accuracy } };
         lastGeoAddress = { ...resObj, time: Date.now() };
         return resObj;
       }
-    } catch (e) {
-      console.warn('[Quick GPS fallback]', e);
-    }
+    } catch (e) {}
   }
 
-  // 4. Si el GPS está desactivado o denegado, solicitamos modal rápido o usamos Zona
+  // 4. Fallback automático y transparente a la Zona configurada del usuario (sin interrumpir)
   const defaultSug = State.user?.zona ? `Zona ${State.user.zona}` : 'Lugar de trabajo';
-  const manual = await pedirDireccionManualModal(defaultSug);
-  return manual ? { direccion: manual, coords: null } : { direccion: defaultSug, coords: null };
+  return { direccion: defaultSug, coords: null };
 }
 
   // IMPLEMENTACIÓN ESTRICTA ASÍNCRONA PARA IMPACTO INMEDIATO EN LA UI
